@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Simple E-Commerce Page</title>
+  <style>
+    /* ====== BASIC STYLES ====== */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Poppins', sans-serif;
+    }
+
+    body {
+      background: #f4f4f4;
+      color: #333;
+    }
+
+    header {
+      background: #111;
+      color: #fff;
+      padding: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    header h1 {
+      font-size: 24px;
+    }
+
+    header .cart {
+      background: #ff6f61;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      position: relative;
+    }
+
+    header .cart span {
+      position: absolute;
+      top: -8px;
+      right: -8px;
+      background: #fff;
+      color: #111;
+      border-radius: 50%;
+      font-size: 12px;
+      width: 18px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .container {
+      width: 90%;
+      margin: 30px auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+    }
+
+    .product {
+      background: #fff;
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+      transition: transform 0.3s;
+    }
+
+    .product:hover {
+      transform: translateY(-5px);
+    }
+
+    .product img {
+      width: 100%;
+      height: 200px;
+      object-fit: cover;
+      border-radius: 10px;
+    }
+
+    .product h3 {
+      margin: 10px 0;
+      font-size: 18px;
+    }
+
+    .product p {
+      color: #666;
+    }
+
+    .product button {
+      background: #ff6f61;
+      border: none;
+      padding: 10px 15px;
+      color: #fff;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+
+    .product button:hover {
+      background: #e65b50;
+    }
+
+    /* ====== CART MODAL ====== */
+    .cart-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.6);
+      justify-content: center;
+      align-items: center;
+    }
+
+    .cart-modal-content {
+      background: #fff;
+      width: 90%;
+      max-width: 400px;
+      border-radius: 10px;
+      padding: 20px;
+    }
+
+    .cart-modal-content h2 {
+      margin-bottom: 15px;
+    }
+
+    .cart-items {
+      max-height: 250px;
+      overflow-y: auto;
+    }
+
+    .cart-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid #ddd;
+    }
+
+    .cart-item span {
+      font-size: 14px;
+    }
+
+    .close-cart {
+      background: #ff6f61;
+      color: white;
+      padding: 8px 15px;
+      border: none;
+      border-radius: 5px;
+      margin-top: 10px;
+      cursor: pointer;
+      width: 100%;
+    }
+
+    .total {
+      text-align: right;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ShopEasy</h1>
+    <div class="cart" id="cart-btn">🛒 Cart <span id="cart-count">0</span></div>
+  </header>
+
+  <div class="container" id="product-list">
+    <!-- Products will be added by JS -->
+  </div>
+
+  <!-- CART MODAL -->
+  <div class="cart-modal" id="cart-modal">
+    <div class="cart-modal-content">
+      <h2>Your Cart</h2>
+      <div class="cart-items" id="cart-items"></div>
+      <p class="total" id="cart-total">Total: $0</p>
+      <button class="close-cart" id="close-cart">Close</button>
+    </div>
+  </div>
+
+  <script>
+    const products = [
+      { id: 1, name: "Wireless Headphones", price: 59, image: "https://picsum.photos/id/180/300/200" },
+      { id: 2, name: "Smart Watch", price: 120, image: "https://picsum.photos/id/250/300/200" },
+      { id: 3, name: "Bluetooth Speaker", price: 75, image: "https://picsum.photos/id/1080/300/200" },
+      { id: 4, name: "Gaming Mouse", price: 35, image: "https://picsum.photos/id/1070/300/200" },
+      { id: 5, name: "Mechanical Keyboard", price: 99, image: "https://picsum.photos/id/1062/300/200" },
+    ];
+
+    const productList = document.getElementById('product-list');
+    const cartBtn = document.getElementById('cart-btn');
+    const cartModal = document.getElementById('cart-modal');
+    const closeCart = document.getElementById('close-cart');
+    const cartItemsContainer = document.getElementById('cart-items');
+    const cartTotal = document.getElementById('cart-total');
+    const cartCount = document.getElementById('cart-count');
+
+    let cart = [];
+
+    // Display products
+    function renderProducts() {
+      productList.innerHTML = products.map(p => `
+        <div class="product">
+          <img src="${p.image}" alt="${p.name}">
+          <h3>${p.name}</h3>
+          <p>$${p.price}</p>
+          <button onclick="addToCart(${p.id})">Add to Cart</button>
+        </div>
+      `).join('');
+    }
+
+    // Add to cart
+    function addToCart(id) {
+      const product = products.find(p => p.id === id);
+      const existing = cart.find(item => item.id === id);
+      if (existing) {
+        existing.qty++;
+      } else {
+        cart.push({ ...product, qty: 1 });
+      }
+      updateCart();
+    }
+
+    // Update cart UI
+    function updateCart() {
+      cartItemsContainer.innerHTML = cart.map(item => `
+        <div class="cart-item">
+          <span>${item.name} x${item.qty}</span>
+          <span>$${item.price * item.qty}</span>
+        </div>
+      `).join('');
+
+      const total = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+      cartTotal.textContent = `Total: $${total}`;
+      cartCount.textContent = cart.reduce((sum, item) => sum + item.qty, 0);
+    }
+
+    // Toggle cart modal
+    cartBtn.addEventListener('click', () => {
+      cartModal.style.display = 'flex';
+    });
+
+    closeCart.addEventListener('click', () => {
+      cartModal.style.display = 'none';
+    });
+
+    // Initialize
+    renderProducts();
+  </script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Simple E-Commerce Page</title>
+  <style>
+    /* ====== BASIC STYLES ====== */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Poppins', sans-serif;
+    }
+
+    body {
+      background: #f4f4f4;
+      color: #333;
+    }
+
+    header {
+      background: #111;
+      color: #fff;
+      padding: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    header h1 {
+      font-size: 24px;
+    }
+
+    header .cart {
+      background: #ff6f61;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      position: relative;
+    }
+
+    header .cart span {
+      position: absolute;
+      top: -8px;
+      right: -8px;
+      background: #fff;
+      color: #111;
+      border-radius: 50%;
+      font-size: 12px;
+      width: 18px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .container {
+      width: 90%;
+      margin: 30px auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+    }
+
+    .product {
+      background: #fff;
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+      transition: transform 0.3s;
+    }
+
+    .product:hover {
+      transform: translateY(-5px);
+    }
+
+    .product img {
+      width: 100%;
+      height: 200px;
+      object-fit: cover;
+      border-radius: 10px;
+    }
+
+    .product h3 {
+      margin: 10px 0;
+      font-size: 18px;
+    }
+
+    .product p {
+      color: #666;
+    }
+
+    .product button {
+      background: #ff6f61;
+      border: none;
+      padding: 10px 15px;
+      color: #fff;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+
+    .product button:hover {
+      background: #e65b50;
+    }
+
+    /* ====== CART MODAL ====== */
+    .cart-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.6);
+      justify-content: center;
+      align-items: center;
+    }
+
+    .cart-modal-content {
+      background: #fff;
+      width: 90%;
+      max-width: 400px;
+      border-radius: 10px;
+      padding: 20px;
+    }
+
+    .cart-modal-content h2 {
+      margin-bottom: 15px;
+    }
+
+    .cart-items {
+      max-height: 250px;
+      overflow-y: auto;
+    }
+
+    .cart-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid #ddd;
+    }
+
+    .cart-item span {
+      font-size: 14px;
+    }
+
+    .close-cart {
+      background: #ff6f61;
+      color: white;
+      padding: 8px 15px;
+      border: none;
+      border-radius: 5px;
+      margin-top: 10px;
+      cursor: pointer;
+      width: 100%;
+    }
+
+    .total {
+      text-align: right;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ShopEasy</h1>
+    <div class="cart" id="cart-btn">🛒 Cart <span id="cart-count">0</span></div>
+  </header>
+
+  <div class="container" id="product-list">
+    <!-- Products will be added by JS -->
+  </div>
+
+  <!-- CART MODAL -->
+  <div class="cart-modal" id="cart-modal">
+    <div class="cart-modal-content">
+      <h2>Your Cart</h2>
+      <div class="cart-items" id="cart-items"></div>
+      <p class="total" id="cart-total">Total: $0</p>
+      <button class="close-cart" id="close-cart">Close</button>
+    </div>
+  </div>
+
+  <script>
+    const products = [
+      { id: 1, name: "Wireless Headphones", price: 59, image: "https://picsum.photos/id/180/300/200" },
+      { id: 2, name: "Smart Watch", price: 120, image: "https://picsum.photos/id/250/300/200" },
+      { id: 3, name: "Bluetooth Speaker", price: 75, image: "https://picsum.photos/id/1080/300/200" },
+      { id: 4, name: "Gaming Mouse", price: 35, image: "https://picsum.photos/id/1070/300/200" },
+      { id: 5, name: "Mechanical Keyboard", price: 99, image: "https://picsum.photos/id/1062/300/200" },
+    ];
+
+    const productList = document.getElementById('product-list');
+    const cartBtn = document.getElementById('cart-btn');
+    const cartModal = document.getElementById('cart-modal');
+    const closeCart = document.getElementById('close-cart');
+    const cartItemsContainer = document.getElementById('cart-items');
+    const cartTotal = document.getElementById('cart-total');
+    const cartCount = document.getElementById('cart-count');
+
+    let cart = [];
+
+    // Display products
+    function renderProducts() {
+      productList.innerHTML = products.map(p => `
+        <div class="product">
+          <img src="${p.image}" alt="${p.name}">
+          <h3>${p.name}</h3>
+          <p>$${p.price}</p>
+          <button onclick="addToCart(${p.id})">Add to Cart</button>
+        </div>
+      `).join('');
+    }
+
+    // Add to cart
+    function addToCart(id) {
+      const product = products.find(p => p.id === id);
+      const existing = cart.find(item => item.id === id);
+      if (existing) {
+        existing.qty++;
+      } else {
+        cart.push({ ...product, qty: 1 });
+      }
+      updateCart();
+    }
+
+    // Update cart UI
+    function updateCart() {
+      cartItemsContainer.innerHTML = cart.map(item => `
+        <div class="cart-item">
+          <span>${item.name} x${item.qty}</span>
+          <span>$${item.price * item.qty}</span>
+        </div>
+      `).join('');
+
+      const total = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+      cartTotal.textContent = `Total: $${total}`;
+      cartCount.textContent = cart.reduce((sum, item) => sum + item.qty, 0);
+    }
+
+    // Toggle cart modal
+    cartBtn.addEventListener('click', () => {
+      cartModal.style.display = 'flex';
+    });
+
+    closeCart.addEventListener('click', () => {
+      cartModal.style.display = 'none';
+    });
+
+    // Initialize
+    renderProducts();
+  </script>
+</body>
+</html>
